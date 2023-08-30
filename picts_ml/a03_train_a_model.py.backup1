@@ -1,0 +1,264 @@
+"""
+Training a model on additional data; initial aim is to establish a script
+that can use seisbench etc to take a trained model (e.g. EQTransformer
+'original') and then train it with additional data (e.g. from PICTS).
+
+If this script is run directly it will use the ALL_CAPS_CONSTANTS as values
+for the retrain_a_model() function. This function can also be imported and used
+in other scripts.
+
+A lot of the initial code was taken from or inspired by:
+https://colab.research.google.com/github/seisbench/seisbench/blob/main/examples/03a_training_phasenet.ipynb
+"""
+
+import seisbench.models as sbm
+import seisbench.data as sbd
+import seisbench.generate as sbg
+from seisbench.util import worker_seeding
+
+import torch
+from torch.utils.data import DataLoader
+import numpy as np
+import os
+import sys
+from datetime import datetime
+import pandas as pd
+
+
+# file with station info
+STATION_INFO = "other_data_files/picts_network_info.csv"
+# toggle ON_HPC to True for the 'non-testing' version of this script
+ON_HPC = False
+# toggle to display images
+SHOW_TRAINING_EXAMPLE = False
+
+if SHOW_TRAINING_EXAMPLE:
+    import matplotlib.pyplot as plt
+
+
+# file with locations of the training data (metadata.csv & waveforms.hdf5)
+TRAINING_DATA = "generated_training_data"
+# name for saving the model
+SAVING_NAME = "phasenet_man_pick_1"
+# model details
+MODEL_TYPE = "phasenet"
+MODEL_PRETRAINING = "stead"
+EPOCHS = 100
+
+
+def retrain_a_model(
+    *,
+    model_type: str,
+    model_pretraining: str,
+    saving_name: str,
+    save_path="retrained_models",
+    training_data: str,
+    epochs: int = 100,
+    pg_sigma=15,
+) -> None:
+    """Retrains a pre-trained Seisbench model on the training dataset provided
+    and saves the new model."""
+    # check that the name the model will be saved as is not already in use
+    _check_saving_name(saving_path=save_path, name=saving_name)
+    # create the pre-trained model
+    model = _select_model(model_name=model_type, model_pretrain=model_pretraining)
+    if ON_HPC:
+        model.cuda()
+
+    # load the data for training
+    data = sbd.WaveformDataset(
+        training_data, sampling_rate=100, missing_componens="pad"
+    )
+
+    # split the dataset
+    train, dev, test = data.train_dev_test()
+
+    # create generators for training and validation
+    station_info: pd.DataFrame = pd.read_csv(STATION_INFO, header=[0])
+    phase_dict = dict()
+    for station_name in station_info.loc[:, "name"]:
+        phase_dict[f"{station_name}_p_arrival_time_man_picked"] = "P"
+        phase_dict[f"{station_name}_s_arrival_time_man_picked"] = "S"
+    """
+    phase_dict = {
+        "trace_p_arrival_sample": "P",
+        "trace_P_arrival_sample": "P",
+        "trace_s_arrival_sample": "S",
+        "trace_S_arrival_sample": "S",
+    }
+    """
+
+    train_generator = sbg.GenericGenerator(train)
+    dev_generator = sbg.GenericGenerator(dev)
+
+    augmentations = [
+        sbg.WindowAroundSample(
+            list(phase_dict.keys()),
+            samples_before=3000,
+            windowlen=6000,
+            selection="random",
+            strategy="variable",
+        ),
+        sbg.RandomWindow(windowlen=3001, strategy="pad"),
+        sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
+        sbg.ChangeDtype(np.float32),
+        sbg.ProbabilisticLabeller(label_columns=phase_dict, sigma=pg_sigma, dim=0),
+    ]
+
+    train_generator.add_augmentations(augmentations)
+    dev_generator.add_augmentations(augmentations)
+
+    # visualise a training example
+    if SHOW_TRAINING_EXAMPLE:
+        sample = train_generator[np.random.randint(len(train_generator))]
+        fig = plt.figure(figsize=(15, 10))
+        axs = fig.subplots(
+            2, 1, sharex=True, gridspec_kw={"hspace": 0, "height_ratios": [3, 1]}
+        )
+        axs[0].plot(sample["X"].T)  # plot waveforms
+        axs[1].plot(sample["y"].T)  # plot labels
+        plt.show()
+
+    # create pytorch loaders
+    batch_size = 256
+    num_workers = 4  # The number of threads used for loading data
+    train_loader = DataLoader(
+        train_generator,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        worker_init_fn=worker_seeding,
+    )
+    dev_loader = DataLoader(
+        dev_generator,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        worker_init_fn=worker_seeding,
+    )
+
+    # training parameters
+    learning_rate = 1e-2
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    # do the training
+    for t in range(epochs):
+        print(f"Epoch {t+1}\n-------------------------------")
+        _train_loop(train_loader, model, optimizer)
+        _test_loop(dev_loader, model)
+
+    # save the model
+    path = os.path.join(save_path, saving_name)
+    model.save(path, version_str="1")
+    info_path = os.path.join(path, "model_info.txt")
+    info = (
+        f"Date created: {datetime.now()}\nName: {saving_name}\n"
+        f"Model type: {model_type} '{model_pretraining}'\n"
+        f"Training data: {training_data}\nEpochs: {epochs}\n"
+        f"Sigma: {pg_sigma}"
+    )
+    with open(info_path, "w") as file:
+        file.write(info)
+    return
+
+
+def _loss_fn(y_pred, y_true, eps=1e-5):
+    # vector cross entropy loss
+    h = y_true * torch.log(y_pred + eps)
+    h = h.mean(-1).sum(-1)  # Mean along sample dimension and sum along pick dimension
+    h = h.mean()  # Mean over batch axis
+    return -h
+
+
+def _train_loop(dataloader, model, optimizer):
+    size = len(dataloader.dataset)
+    for batch_id, batch in enumerate(dataloader):
+        # Compute prediction and loss
+        pred = model(batch["X"].to(model.device))
+        loss = _loss_fn(pred, batch["y"].to(model.device))
+
+        # Backpropagation
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if batch_id % 5 == 0:
+            loss, current = loss.item(), batch_id * batch["X"].shape[0]
+            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+
+
+def _test_loop(dataloader, model):
+    num_batches = len(dataloader)
+    test_loss = 0
+
+    model.eval()  # close the model for evaluation
+
+    with torch.no_grad():
+        for batch in dataloader:
+            pred = model(batch["X"].to(model.device))
+            test_loss += _loss_fn(pred, batch["y"].to(model.device)).item()
+
+    model.train()  # re-open model for training stage
+
+    test_loss /= num_batches
+    print(f"Test avg loss: {test_loss:>8f} \n")
+
+
+def _select_model(model_name, model_pretrain):
+    """Returns the Seisbench model specified, handles errors by printing
+    a message then returning None type."""
+    try:
+        match model_name:
+            case "basicphaseae":
+                return sbm.BasicPhaseAE.from_pretrained(model_pretrain)
+            case "cred":
+                return sbm.CRED.from_pretrained(model_pretrain)
+            case "dpp":
+                return sbm.DeepPhasePick(model_pretrain)
+            case "eqtransformer":
+                return sbm.EQTransformer.from_pretrained(model_pretrain)
+            case "gpd":
+                return sbm.GPD.from_pretrained(model_pretrain)
+            case "phasenet":
+                return sbm.PhaseNet.from_pretrained(model_pretrain)
+            case "phasenetlight":
+                return sbm.PhaseNetLight.from_pretrained(model_pretrain)
+            case "pickblue":
+                print(
+                    "Error in _select_model(): PickBlue is intended for the "
+                    "ocean! Model not created."
+                )
+                return None
+            case _:
+                print(
+                    f"model: ({model_name}) was not recognised "
+                    f"(it may not have been implemented in this code yet)."
+                )
+                return None
+    except ValueError:
+        print(
+            f"pretraining ({model_pretrain}) was not recognised, it may not "
+            f"have been implemented in this code yet). Model not created."
+        )
+
+
+def _check_saving_name(saving_path: str, name: str) -> None:
+    """Checks that the retrained model name isn't already in use to prevent
+    accidentally overwriting older model files."""
+    path: str = os.path.join(saving_path, name)
+    if os.path.isdir(path):
+        sys.exit(
+            f"The specified model name '{name}' already exists.\n"
+            f"To run the script, either delete {path}, or change the name that the model will be saved as."
+        )
+    return
+
+
+if __name__ == "__main__":
+    retrain_a_model(
+        model_type=MODEL_TYPE,
+        model_pretraining=MODEL_PRETRAINING,
+        saving_name=SAVING_NAME,
+        training_data=TRAINING_DATA,
+        epochs=EPOCHS,
+    )
