@@ -1,4 +1,8 @@
 TODO.txt
+picts_ml/01_pre_process_data_outputs/*
+picts_ml/02_generate_training_data_outputs/*
+picts_ml/03_train_a_model_inputs/*
+picts_ml/03_train_a_model_outputs/*
 
 
 # Byte-compiled / optimized / DLL files
