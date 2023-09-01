@@ -1,15 +1,18 @@
 # PICTS_ML
 
-This repository is a collection of some of the more useful machine-learning related code and associated data I created whilst working on PICTS in the summer of 2023, helping to research earthquakes in the North East of Scotland. The picts_ml package mainly focuses on training machine learning models that can assist in exploring seismometer data to find earthquakes and other waveforms of interest. A general workflow using this package might look like:
+Machine-learning related code and data I created whilst working on PICTS helping to research earthquakes in the North East of Scotland. The picts_ml package mainly focuses on training machine learning models that can assist in exploring seismometer data to find earthquakes and other waveforms of interest. A general workflow using this package might look like:
 
-**pre-process data** --> **generate training data** --> **train ML model** --> _use ML model to find interesting waveforms, identify earthquakes, pick P & S wave arrivals etc_
+**pre-process data** ⟶ **generate training data** ⟶ **train ML model** ⟶ _use ML model to find interesting waveforms, identify earthquakes, pick P & S wave arrivals etc_
 
 
 ## Quickstart
+Clone the repository with `git clone https://github.com/dgc-proton/PICTS_ML.git`, or alternatively click on the `Code` dropdown button at the top of the GitHub page ⟶ `Download ZIP` ⟶ extract the files to a suitable directory on your computer.
 
-Ensure that you have configured the file paths located in `picts_ml/shared_data_files/config.py` and have the required packages installed.
+Configure the file paths located in `picts_ml/shared_data_files/config.py`.
 
-The main scripts (a01... etc) have a CLI; so for example `python3 a01_pre_process_data.py -h` will give the CLI help / instructions for that script.
+Install the [requirements]( #requirements ).
+
+The main scripts (a01... etc) have a Command Line Interface; so for example `python3 a01_pre_process_data.py -h` will give the CLI help / instructions for that script.
 
 Source code for each script contains detailed documentation, including how the functions can be imported into your own scripts.
 
@@ -18,16 +21,17 @@ Located in appropriately named directories and files are some models already tra
 
 ## Requirements
 
-I recommend installing the requirements to a virtual environment (python venv has been tested, Anaconda or similar should work). The full requirements are detailed in `requirements.txt`.
+I recommend installing the requirements to a virtual environment (python venv has been tested, Anaconda or similar should work).
 
-To use pip for installation: `pip install -r requirements.txt` 
+Required packages: [ObsPy]( https://github.com/obspy/obspy ), [pandas]( https://pandas.pydata.org/ ), [NumPy]( https://numpy.org/ ), [SeisBench]( https://github.com/seisbench/seisbench ), [Pyrocko]( https://github.com/pyrocko/pyrocko ), [PyTorch]( https://pytorch.org/ )
+Optional packages: [matplotlib]( https://matplotlib.org/ )
 
-Pip will not install pyrocko version 2023.06.29 from the requirements file. I recommend doing a user installation from source rather than using pip for this package. Instructions can be found on their website: https://github.com/pyrocko/pyrocko
+`pip install -r requirements.txt` will install the tested versions of all required packages apart from pyrocko version 2023.06.29, which I recommend installing from source: <https://github.com/pyrocko/pyrocko>
 
 
 ## Background
 
-I'm Dave Riley, the author of this repository and an electrical & mechanical engineering student at the University of Aberdeen. For the last 10 weeks I have been working alongside Szymon Szymanski, together assisting [Dr Amy Gilligan]( https://amygilligan.wordpress.com ) with PICTS; Probing Into the Crust Through eastern Scotland. The key aim of PICTS is to uncover the role that the Highland Boundary Fault (HBF) has played in building Scotland using seismology.
+I'm Dave Riley, the author of this repository and an electrical & mechanical engineering student at the University of Aberdeen. For 10 weeks during the summer of 2023 I have been working alongside Szymon Szymanski, together assisting [Dr Amy Gilligan]( https://amygilligan.wordpress.com ) with PICTS; Probing Into the Crust Through eastern Scotland. The key aim of PICTS is to uncover the role that the Highland Boundary Fault (HBF) has played in building Scotland using seismology.
 
 Once the initial data exploration and fieldwork had been completed I spent my remaining time working with Szymon and Amy on processing and exploring the data. This is still a work in progress, but as my placement comes to an end I decided to select the parts of my work that I think will be most useful as the project continues and spend some time making them easier to access and use. There are two main aspects to this:
 
@@ -41,12 +45,12 @@ Overall I've found these subjects and the experience of working on PICTS very in
 
 ## Overview of the PICTS_ML Repository
 
-Much more detail is contained within the source code; I've tried to ensure that there are instructions for use at the top of each file as well as sufficient comments, descriptive docstrings and type-hints for each function. Each of the main scripts also has a basic command line interface; run `python3 [script_name].py` to access the help.
+Much more detail is contained within the source code; I've tried to ensure that there are instructions for use at the top of each file as well as sufficient comments, descriptive docstrings and type-hints for each function.
 
 
 ### 01: Data Pre-Processing
 
-`a01_pre_process_data.py` takes a csv file with known event times and locations, and outputs a csv catalogue which details the times of P & S waves from the event arriving at each seismometer station. Picks are done manually, with automation assistance giving the user estimated arrival times and ensuring the relevant section of the trace is displayed on which to make the picks.
+`a01_pre_process_data.py` takes a csv file with known event times and locations, and outputs a csv catalogue which details the times of P & S waves from the event arriving at each seismometer station as well as metadata in the required format for later scripts to use. Picks are done manually, with automation assistance giving the user estimated arrival times and ensuring the relevant section of the trace is displayed on which to make the picks.
 
 
 ### 02: Generating Training Data
@@ -63,12 +67,12 @@ Much more detail is contained within the source code; I've tried to ensure that 
 
 The `pre-processed_events_catalogue directory` contains at least one catalogue of events with manual pick times for P & S wave arrivals at PICTS stations. The initial event details were obtained from the BGS (British Geological Survey) database, and the plan is to add events to this file from other sources as well.
 
-Notes have been made where traces weren't available or where picks were too difficult for me to make. When considering the picks I have made, please remember that I had no experience picking before this so depending on your use-case you may want to re-pick some of them.
+Notes have been made where traces weren't available or where picks were too difficult for me to make. When considering the picks I have made, please remember that I had no experience picking before this so depending on your use-case you may want to re-pick some of them. The files have been created using `a01_pre_process_data.py` and so can be easily turned into training data.
 
 
 ### Trained Models
 
-Contains some trained models created with these scripts, along with details of how they were trained. They are ready to be used for picking waves, identifying events, or as comparisons / a reference point for the current status of this piece of work.
+Contains some trained and ready to use models created with these scripts, along with details of how they were trained.
 
 
 ## FAQ
