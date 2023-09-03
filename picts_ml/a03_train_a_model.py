@@ -4,7 +4,7 @@ This scripts takes training data in the form of a waveforms.hdf5 and metadata.cs
 and trains a machine learning picker model using this training data along with the
 training parameters given. It is able to train a model from 'scratch' (i.e. randomly
 pre-weighted), or it can load a model that has already been trained on a dataset and
-then re-train it. 
+then re-train it.
 A lot of the code was adapted from a notebook written by the authors of Seisbench:
 https://colab.research.google.com/github/seisbench/seisbench/blob/main/examples/03a_training_phasenet.ipynb
 
@@ -25,7 +25,6 @@ more PICTS data so that a more thorough evaluation of the models can be done. -D
 """
 
 import os
-import sys
 from datetime import datetime
 import argparse
 
@@ -37,11 +36,11 @@ from seisbench.util import worker_seeding
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
-import pandas as pd
 def visualisation_on():
     import matplotlib.pyplot as plt
 
 import shared_data_files.config as config
+from shared_data_files.shared_functions import check_dir_ready
 
 
 def retrain_a_model(
@@ -53,7 +52,7 @@ def retrain_a_model(
     save_path="retrained_models",
     training_data: str,
     epochs: int = 100,
-    pg_sigma: int = 15,
+    pg_sigma: int = 30,
     on_hpc: bool = False,
     show_trg_example: bool = False,
     learning_rate: float = 1e-2,
@@ -76,11 +75,11 @@ def retrain_a_model(
     Returns:
         None
     """
-    # check that the name the model will be saved as is not already in use
-    _check_saving_name(saving_path=save_path, name=saving_name)
     # cast the save version to str for later saving (argument is int to make sure valid version number supplied)
-    save_version  = str(save_version)
-    
+    save_version = str(save_version)
+    # check that the name the model will be saved as is not already in use
+    full_save_path = _create_fsave_path(path=save_path, name=saving_name, version=save_version)
+
     # create the pre-trained model
     model = _select_model(model_name=model_type, model_pretrain=model_pretraining)
     if on_hpc:
@@ -159,9 +158,8 @@ def retrain_a_model(
         _test_loop(dev_loader, model)
 
     # save the model
-    path = os.path.join(save_path, saving_name)
-    model.save(path, version_str=save_version)
-    info_path = os.path.join(path, "model_info.txt")
+    model.save(full_save_path, version_str=save_version)
+    info_path = os.path.join(full_save_path, "model_info.txt")
     info = (
         f"Date created: {datetime.now()}\nName: {saving_name}\n"
         f"Model type: {model_type} '{model_pretraining}'\n"
@@ -220,7 +218,7 @@ def _test_loop(dataloader, model):
 
 def _select_model(model_name: str, model_pretrain: str | None = None) -> seisbench.models.base.WaveformModel:
     """Returns the Seisbench model specified.
-    
+
     Args:
         model_name: The name of the model type to use, all in lower-case.
         model_pretrain: The model pretraining type (usually a dataset name). If none
@@ -281,7 +279,6 @@ def _select_model(model_name: str, model_pretrain: str | None = None) -> seisben
                     f"model: ({model_name}) was not recognised "
                     f"(it may not have been implemented in this code yet)."
                 )
-                
     except ValueError:
         raise ValueError(
             f"pretraining ({model_pretrain}) was not recognised, it may not "
@@ -289,21 +286,39 @@ def _select_model(model_name: str, model_pretrain: str | None = None) -> seisben
         )
 
 
+def _create_fsave_path(*, path: str, name: str, version: str | int) -> str:
+    """Ensure that save directory structure correctly exists and won't overwrite existing files.
+
+    Args:
+        path: The main saving directory, e.g. 03_train_a_model_outputs
+        name: The name of the model, which will also affect the name of the sub dir containing its files.
+        version: The version of the model, which will also affect the name of the sub dir containing its files.
+
+    Returns:
+        The full path to the dir where the model files should be saved.
+    """
+    subdir_name = f"{name}_v{version}"
+    dir_path = os.path.join(path, subdir_name)
+    # create the directory / if it exists check that it is empty to prevent overwriting files
+    check_dir_ready(path=dir_path)
+    return dir_path
+
+
 if __name__ == "__main__":
     # setup the argument parser for CLI
     parser = argparse.ArgumentParser(
         description="A program that takes one set of training data as an input from directory 03_train_a_model_inputs, "
         "along with training parameters, and then outputs a trained ML model to the directory 03_tran_a_model_outputs")
-    parser.add_argument("training_data", help="The directory containing the training data (waveforms.hdf5 & metadata.csv)")
     parser.add_argument("saving_name", help="The name to save the trained model as.")
+    parser.add_argument("--training_data", help="The directory containing the training data (waveforms.hdf5 & metadata.csv)", default="03_train_a_model_inputs")
     parser.add_argument("--type", help="The model type (note: all lowercase), default=phasenet. See Seisbench documentation for all options.", default="phasenet")
     parser.add_argument("--pretraining", help="Dataset for pretraining. Default=None (a randomly pre-weighted model). Reccomended=stead. See Seisbench documentation for options.", default=None)
     parser.add_argument("--epochs", help="Training epochs. Default=100", default=100, type=int)
-    parser.add_argument("--sigma", help="Sigma value for probabalistic labeller. Default=15", default=15, type=int)
+    parser.add_argument("--sigma", help="Sigma value for probabalistic labeller. Default=30", default=30, type=int)
     parser.add_argument("--cuda", help="Activate CUDA GPU acceleration.", action="store_true")
     parser.add_argument("--visualise_trg_example", help="Display a graph of a single randomly selected training sample during training.", action="store_true")
-    parser.add_argument("--learning_rate", help="The learning rate to apply to training. Default=1e-2", default=1e-2. type=float)
-    parser.add_argument("--save_ver", help="Version number for the saved model. Default=1"), Default=1, type=int)
+    parser.add_argument("--learning_rate", help="The learning rate to apply to training. Default=1e-2", default=1e-2, type=float)
+    parser.add_argument("--save_ver", help="Version number for the saved model. Default=1", default=1, type=int)
     args = parser.parse_args()
     if args.visualise_trg_example:
         # import libraries needed for visualisation
