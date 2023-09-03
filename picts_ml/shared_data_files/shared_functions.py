@@ -7,30 +7,38 @@ import sys
 import obspy
 import os
 import shared_data_files.config as config  # user configuration
+# NOTE in future consider swapping from os module to pathlib
 
 
-def check_dir_ready(path: str) -> None:
+def check_dir_ready(path: str, allow_files: bool = False) -> str:
     """Checks that the specified directory exists and is empty.
 
     Args:
-        path: the path to the directory.
+        path: The path to the directory, relative to the current working directory.
+        allow_files: If the directory is allowed to already contain files.
 
     Returns:
-        None if successful. Raises an error or exits the program if an issue occurs.
+        The absolute path of the directory.
+
+    Raises:
+        FileNotFoundError or exits the program if an issue occurs.
     """
+    # make path relative to current working directory
+    cwd_path = os.path.join(os.getcwd(), path)
     # check the directory exists
-    if not os.path.exists(path):
-        os.mkdir(path)
-        if not os.path.exists(path):
+    if not os.path.exists(cwd_path):
+        os.mkdir(cwd_path)
+        if not os.path.exists(cwd_path):
             raise FileNotFoundError(
-                f"Something went wrong creating dir: {path}"
+                f"Something went wrong creating dir: {cwd_path}"
             )
     # check directory is empty
-    if os.listdir(path):
-        sys.exit(
-            f"Check failed: The {path} directory already has files in it"
-        )
-    return
+    if not allow_files:
+        if os.listdir(cwd_path):
+            sys.exit(
+                f"Check failed: The {cwd_path} directory already has files in it"
+            )
+    return cwd_path
 
 
 def get_relevant_streams(

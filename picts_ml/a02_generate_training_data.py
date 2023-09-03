@@ -28,6 +28,7 @@ test split could probably be improved.
 
 import argparse
 from datetime import datetime
+import os
 
 import obspy
 from obspy import UTCDateTime
@@ -41,9 +42,9 @@ from shared_data_files.shared_functions import get_relevant_streams, check_dir_r
 
 
 # output file paths
-METADATA_PATH = "02_generate_training_data_outputs/metadata.csv"
-WAVEFORMS_PATH = "02_generate_training_data_outputs/waveforms.hdf5"
-LOGFILE_PATH = "02_generate_training_data_outputs/generator.log"
+METADATA_FILE = "metadata.csv"
+WAVEFORMS_FILE = "waveforms.hdf5"
+LOGFILE_FILE = "generator.log"
 # time to pad around the P & S arrival stream
 TIME_BEFORE_P_ARRIVAL = 60 * 5
 TIME_AFTER_S_ARRIVAL = 60 * 5
@@ -63,15 +64,18 @@ def generate_training_data(preprocessed_data_path: str) -> None:
         None.
     """
     # check that the output directory exists and has no files already in it
-    check_dir_ready("generator_outputs")
-    log_file("generation started")
+    save_dir = check_dir_ready("02_generate_training_data_outputs", allow_files=True)
+    metadata_path = os.path.join(save_dir, METADATA_FILE)
+    waveforms_path = os.path.join(save_dir, WAVEFORMS_FILE)
+    logfile_path = os.path.join(save_dir, LOGFILE_FILE)
+    log_file("generation started", logfile_path)
     # create the random number generator used for test / train / validate split
     r_num_gen = np.random.default_rng(53485178)
     # load events catalogue
     events = pd.read_csv(preprocessed_data_path, header=[0])
 
     # writer for the files
-    with sbd.WaveformDataWriter(METADATA_PATH, WAVEFORMS_PATH) as writer:
+    with sbd.WaveformDataWriter(metadata_path, waveforms_path) as writer:
         writer.data_format = {"dimension_order": "CW", "component_order": "ZNE"}
 
         # iterate over the events
@@ -99,14 +103,14 @@ def generate_training_data(preprocessed_data_path: str) -> None:
                 )
                 if not streams:
                     log_file(
-                        f"No streams found for station: {station_name}, event time: {events.loc[event_index, 'utcdate']}"
+                        f"No streams found for station: {station_name}, event time: {events.loc[event_index, 'utcdate']}", logfile_path=logfile_path
                     )
                     continue
                 # check that all streams have the same sampling rate
                 for trace in streams:
                     if trace.stats.sampling_rate != streams[0].stats.sampling_rate:
                         log_file(
-                            f"Streams had different sampling rates (so not written) for station: {config.station_info.loc[station_index, 'name']}, event time: {events.loc[event_index, 'utcdate']}"
+                            f"Streams had different sampling rates (so not written) for station: {config.station_info.loc[station_index, 'name']}, event time: {events.loc[event_index, 'utcdate']}", logfile_path=logfile_path
                         )
                         continue
                 # get streams formatted for writing
@@ -126,7 +130,7 @@ def generate_training_data(preprocessed_data_path: str) -> None:
                 )
                 # add data to the writer
                 writer.add_trace(metadata, data)
-    log_file("Finished")
+    log_file("Finished", logfile_path=logfile_path)
 
 
 def compose_metadata(
@@ -211,9 +215,17 @@ def compose_metadata(
     }
 
 
-def log_file(message: str) -> None:
-    """Adds timestap & message to the logfile."""
-    with open(LOGFILE_PATH, "a") as file:
+def log_file(message: str, logfile_path: str) -> None:
+    """Adds timestap & message to the logfile.
+
+    Args:
+        messgae: The message to add (will be automatically timestamped).
+        logfile_path: The path to the logfile.
+
+    Returns:
+        None.
+    """
+    with open(logfile_path, "a") as file:
         log_message = f"{datetime.now()}:    {message}\n"
         file.write(log_message)
     print(log_message)
