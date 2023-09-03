@@ -49,7 +49,7 @@ def retrain_a_model(
     model_pretraining: str,
     saving_name: str,
     save_version: int = 1,
-    save_path="retrained_models",
+    save_path="03_train_a_model_outputs",
     training_data: str,
     epochs: int = 100,
     pg_sigma: int = 30,
@@ -68,7 +68,7 @@ def retrain_a_model(
         training_data: The location of the training data directory containing waveforms.hdf5 and metadata.csv
         epochs: Training epochs
         pg_sigma: Sigma value for predictive labeller
-        on_hpc: Set True to load model to Cuda 
+        on_hpc: Set True to load model to Cuda
         show_trg_example: Display graphs of a randomly selected training example during training
         learning_rate: Learning rate for training
 
@@ -86,10 +86,12 @@ def retrain_a_model(
         model.cuda()
 
     # load the data for training
-    data = sbd.WaveformDataset(
-        training_data, sampling_rate=100, missing_componens="pad"
-    )
-
+    try:
+        data = sbd.WaveformDataset(
+            training_data, sampling_rate=100, missing_componens="pad"
+        )
+    except FileNotFoundError:
+        raise FileNotFoundError(f"The training data files waveforms.hdf5 and metadata.csv were not found in {training_data}")
     # split the dataset
     train, dev, test = data.train_dev_test()
 
@@ -158,13 +160,14 @@ def retrain_a_model(
         _test_loop(dev_loader, model)
 
     # save the model
-    model.save(full_save_path, version_str=save_version)
-    info_path = os.path.join(full_save_path, "model_info.txt")
+    model_path = os.path.join(full_save_path, f"{saving_name}")
+    model.save(model_path, version_str=save_version)
+    info_path = os.path.join(full_save_path, f"{saving_name}_info.txt.v{save_version}" )
     info = (
         f"Date created: {datetime.now()}\nName: {saving_name}\n"
         f"Model type: {model_type} '{model_pretraining}'\n"
-        f"Training data: {training_data}\nEpochs: {epochs}\n"
-        f"Sigma: {pg_sigma}"
+        f"Training data: {training_data}\n\nEpochs: {epochs}\n"
+        f"Sigma: {pg_sigma}\nLearning rate: {learning_rate}\n"
     )
     with open(info_path, "w") as file:
         file.write(info)
@@ -291,16 +294,21 @@ def _create_fsave_path(*, path: str, name: str, version: str | int) -> str:
 
     Args:
         path: The main saving directory, e.g. 03_train_a_model_outputs
-        name: The name of the model, which will also affect the name of the sub dir containing its files.
-        version: The version of the model, which will also affect the name of the sub dir containing its files.
+        name: The name of the model
+        version: The version of the model
 
     Returns:
         The full path to the dir where the model files should be saved.
+
+    Raises:
+        FileExistsError if the model name and version means that a file would be overwritten on saving.
     """
-    subdir_name = f"{name}_v{version}"
-    dir_path = os.path.join(path, subdir_name)
-    # create the directory / if it exists check that it is empty to prevent overwriting files
-    check_dir_ready(path=dir_path)
+    dir_path = check_dir_ready(path=path, allow_files=True)
+    json_path = os.path.join(dir_path, f"{name}.json.v{version}")
+    pt_path = os.path.join(dir_path, f"{name}.pt.v{version}")
+    info_path = os.path.join(dir_path, f"{name}_info.txt.v{version}")
+    if os.path.isfile(json_path) or os.path.isfile(pt_path) or os.path.isfile(info_path):
+        raise FileExistsError("The name and version you have selected to save the model as is already in use. Exiting...")
     return dir_path
 
 
