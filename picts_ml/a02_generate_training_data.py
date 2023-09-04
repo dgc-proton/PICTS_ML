@@ -68,6 +68,7 @@ def generate_training_data(preprocessed_data_path: str) -> None:
     metadata_path = os.path.join(save_dir, METADATA_FILE)
     waveforms_path = os.path.join(save_dir, WAVEFORMS_FILE)
     logfile_path = os.path.join(save_dir, LOGFILE_FILE)
+    log_file(f"Data from: |{preprocessed_data_path}|", logfile_path)
     log_file("generation started", logfile_path)
     # create the random number generator used for test / train / validate split
     r_num_gen = np.random.default_rng(53485178)
@@ -103,7 +104,7 @@ def generate_training_data(preprocessed_data_path: str) -> None:
                 )
                 if not streams:
                     log_file(
-                        f"No streams found for station: {station_name}, event time: {events.loc[event_index, 'utcdate']}", logfile_path=logfile_path
+                        f"No streams found for station: {station_name}, event time: {events.loc[event_index, 'utc_datetime']}", logfile_path=logfile_path
                     )
                     continue
                 # check that all streams have the same sampling rate

@@ -162,16 +162,42 @@ def retrain_a_model(
     # save the model
     model_path = os.path.join(full_save_path, f"{saving_name}")
     model.save(model_path, version_str=save_version)
-    info_path = os.path.join(full_save_path, f"{saving_name}_info.txt.v{save_version}" )
+    log_path = os.path.join(training_data, "generator.log")
+    data_name = data_name_from_log(log_path)
+    info_path = os.path.join(full_save_path, f"{saving_name}.info.v{save_version}" )
     info = (
         f"Date created: {datetime.now()}\nName: {saving_name}\n"
-        f"Model type: {model_type} '{model_pretraining}'\n"
-        f"Training data: {training_data}\n\nEpochs: {epochs}\n"
+        f"Model type: {model_type} '{model_pretraining}'\nTraining data name: {data_name}\n"
+        f"Training data size: {len(data.metadata)}\n\nEpochs: {epochs}\n"
         f"Sigma: {pg_sigma}\nLearning rate: {learning_rate}\n"
     )
     with open(info_path, "w") as file:
         file.write(info)
     return
+
+
+def data_name_from_log(log_path: str) -> str:
+    """Gets the name of the dataset from the training data creation log file.
+
+    Args:
+        log_path: The path to the logfile (must have first line of format: 'Data from: |{data_path_or_name}|'
+
+    Returns:
+        The data path or name from the log file or None if no file is found or format is incorrect.
+    """
+    try:
+        with open(log_path) as file:
+            first_line = file.readline()
+    except FileNotFoundError:
+        print("The training data logfile could not be found by data_name_from_log function.\n "
+              "Training data will still be generated but it will not have a name in its info file.")
+        return None
+    try:
+        return first_line.split("|")[-2]
+    except (ValueError, IndexError):
+        print("The training data logfile appears to be in the wrong format. See data_name_from_log function for more detail.\n"
+              "Training data will still be generated but it will not have a name in its info file.")
+        return None
 
 
 def _loss_fn(y_pred, y_true, eps=1e-5):

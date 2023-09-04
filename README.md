@@ -6,11 +6,11 @@ Machine-learning related code and data I created whilst working on PICTS helping
 
 
 ## Quickstart
-Clone the repository with `git clone https://github.com/dgc-proton/PICTS_ML.git`, or alternatively click on the `Code` dropdown button at the top of the GitHub page ⟶ `Download ZIP` ⟶ extract the files to a suitable directory on your computer.
+Clone the repository with `git clone https://github.com/dgc-proton/PICTS_ML.git` or alternatively click on the `Code` dropdown button at the top of the GitHub page ⟶ `Download ZIP` ⟶ extract the files to a suitable directory on your computer.
 
-Configure the file paths located in `picts_ml/shared_data_files/config.py`.
+Configure the file paths located in `picts_ml/shared_data_files/config.py`
 
-Install the [requirements]( #requirements ).
+Install the [requirements]( #requirements )
 
 The main scripts (a01... etc) have a Command Line Interface; so for example `python3 a01_pre_process_data.py -h` will give the CLI help / instructions for that script.
 
@@ -23,8 +23,18 @@ Located in appropriately named directories and files are some models already tra
 
 I recommend installing the requirements to a virtual environment (python venv has been tested, Anaconda or similar should work).
 
-Required packages: [ObsPy]( https://github.com/obspy/obspy ), [pandas]( https://pandas.pydata.org/ ), [NumPy]( https://numpy.org/ ), [SeisBench]( https://github.com/seisbench/seisbench ), [Pyrocko]( https://github.com/pyrocko/pyrocko ), [PyTorch]( https://pytorch.org/ )
-Optional packages: [matplotlib]( https://matplotlib.org/ )
+Required packages:
+
+* [ObsPy]( https://github.com/obspy/obspy )
+* [pandas]( https://pandas.pydata.org/ )
+* [NumPy]( https://numpy.org/ )
+* [SeisBench]( https://github.com/seisbench/seisbench )
+* [Pyrocko]( https://github.com/pyrocko/pyrocko )
+* [PyTorch]( https://pytorch.org/ )
+
+Optional packages:
+
+* [matplotlib]( https://matplotlib.org/ )
 
 `pip install -r requirements.txt` will install the tested versions of all required packages apart from pyrocko version 2023.06.29, which I recommend installing from source: <https://github.com/pyrocko/pyrocko>
 
@@ -55,7 +65,7 @@ Much more detail is contained within the source code; I've tried to ensure that 
 
 ### 02: Generating Training Data
 
-`a02_generate_training_data.py` takes a catalogue of events and picks (such as one produced by `a01_pre_process_event_data.py`), and transform it into a `metadata.csv` file and a `waveforms.hdf5` file suitable for using to train an ML picking or detecting model using Seisbench.
+`a02_generate_training_data.py` takes a catalogue of events and picks, such as one produced by `a01_pre_process_event_data.py`, and transform it into a `metadata.csv` file, a `waveforms.hdf5` file and a log file suitable for using to train an ML picking or detecting model using Seisbench.
 
 
 ### 03: Training (or Re-training) Models
