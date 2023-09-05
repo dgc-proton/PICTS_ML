@@ -176,7 +176,7 @@ def compose_metadata(
     s_sample_arrival = (s_arrival - start) * sampling_rate
     return {
         "station_network_code": station_info["network"],
-        "station_code": station_info.name,
+        "station_code": station_info["name"],
         "trace_channel": "HH",
         "station_latitude_deg": station_info["lat"],
         "station_longitude_deg": station_info["lon"],
