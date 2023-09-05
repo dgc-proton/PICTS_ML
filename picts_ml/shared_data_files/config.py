@@ -6,6 +6,7 @@ for each setting are below.
 
 
 import pandas as pd
+from pathlib import Path
 
 
 # a list of strings giving full paths to the data from the seismometers
@@ -25,8 +26,12 @@ data_paths = ["/run/media/dv1/Dave_T5/PICTS/PICTS_data", ]
 # lon,lat,name,network
 # lon and lat are in decimal, using -ve and +ve convention. Name is 4 letter
 # station code and network is 2 letter network code. The info is held as a pandas DataFrame
-# example: STATION_INFO = pd.read_csv("picts_network_info.csv", header=[0])
-station_info = pd.read_csv("shared_data_files/picts_network_info.csv", header=[0])
+# example: station_info_name = "picts_network_info.csv"
+station_info_name = "picts_network_info.csv"
+# load the station info file (this part shouldn't need altering)
+script_dir = Path(__file__).resolve().parent
+file_path = script_dir / station_info_name
+station_info = pd.read_csv(file_path, header=[0])
 
 # Constants to be used for estimating P & S wave travel times (usually using TauPyModel)
 # example: EARTH_RADIUS = 6363.133  # taken from https://rechneronline.de/earth-radius/ for lat = 57

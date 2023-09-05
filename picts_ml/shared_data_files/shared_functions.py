@@ -6,7 +6,7 @@ This module contains shared functions used in the picts_ml package.
 import sys
 import obspy
 import os
-import shared_data_files.config as config  # user configuration
+from .config import data_paths  # user configuration
 # NOTE in future consider swapping from os module to pathlib
 
 
@@ -114,7 +114,7 @@ def get_files(*, network: str, station: str, year: str | int, jday: str | int) -
     """
     network, station, year, jday = str(network), str(station), str(year), str(jday)
     file_list = list()
-    for path in config.data_paths:
+    for path in data_paths:
         location = os.path.join(path, year, network, station)
         for root, dirs, files in os.walk(location):
             for file in files:
