@@ -1,0 +1,22 @@
+{
+    "docstring": "",
+    "model_args": {
+        "component_order": "ZNE",
+        "filter_args": null,
+        "filter_kwargs": null,
+        "grouping": "instrument",
+        "in_channels": 3,
+        "classes": 3,
+        "phases": "PSN",
+        "sampling_rate": 100
+    },
+    "seisbench_requirement": "0.4.1",
+    "default_args": {
+        "P_threshold": 0.08639824281948567,
+        "S_threshold": 0.1194333034644735,
+        "blinding": [
+            250,
+            250
+        ]
+    }
+}
