@@ -4,6 +4,7 @@ Machine-learning related code and data I created whilst working on PICTS helping
 
 **pre-process data** ⟶ **generate training data** ⟶ **train ML model** ⟶ _use ML model to find interesting waveforms, identify earthquakes, pick P & S wave arrivals etc_
 
+For the current state of model training see `model_evaluation.ipynb`
 
 ## Quickstart
 Clone the repository with `git clone https://github.com/dgc-proton/PICTS_ML.git` or alternatively click on the `Code` dropdown button at the top of the GitHub page ⟶ `Download ZIP` ⟶ extract the files to a suitable directory on your computer.
